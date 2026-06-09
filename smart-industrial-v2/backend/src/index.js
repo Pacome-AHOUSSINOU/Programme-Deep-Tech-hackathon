@@ -22,7 +22,6 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
-// Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/companies', companyRoutes);
 app.use('/api/equipment', equipmentRoutes);
@@ -33,15 +32,26 @@ app.use('/api/notifications', notificationRoutes);
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok', timestamp: new Date() }));
 
-// Error handler
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).json({ error: err.message || 'Internal Server Error' });
 });
 
-initDB().then(() => {
+async function start() {
+  let retries = 10;
+  while (retries > 0) {
+    try {
+      await initDB();
+      break;
+    } catch (err) {
+      retries--;
+      console.log(`DB not ready, retrying... (${retries} left)`);
+      await new Promise(r => setTimeout(r, 3000));
+    }
+  }
+  if (retries === 0) { console.error('Could not connect to DB'); process.exit(1); }
+
   app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-}).catch(err => {
-  console.error('DB init failed:', err);
-  process.exit(1);
-});
+}
+
+start();
